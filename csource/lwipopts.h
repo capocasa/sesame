@@ -21,7 +21,7 @@
 #endif
 #define MEM_ALIGNMENT               4
 #ifndef MEM_SIZE
-#define MEM_SIZE                    4000
+#define MEM_SIZE                    65536
 #endif
 #define MEMP_NUM_TCP_SEG            32
 #define MEMP_NUM_ARP_QUEUE          10
@@ -89,8 +89,8 @@
 #define SLIP_DEBUG                  LWIP_DBG_OFF
 #define DHCP_DEBUG                  LWIP_DBG_OFF
 
-#define LWIP_HTTPD               1
-#define LWIP_HTTPD_CGI           1
+#define LWIP_HTTPD               0
+#define LWIP_HTTPD_CGI           0
 #define LWIP_HTTPD_SSI           0
 
 #define LWIP_HTTPD_DYNAMIC_HEADERS  1

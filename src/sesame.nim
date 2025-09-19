@@ -32,14 +32,31 @@ if connectWifi(ssid, phrase, wpaAuth, timeout):
 
 # tcp server handlers
 
-proc receives(arg: pointer, conn: ptr Tcp, p: ptr Pbuf, err: cint): cint {.cdecl.} =
-  var response = cstring"Echo: received data\n"
-  discard write(conn, response, response.len.cushort, cuchar 1)
-  discard output(conn)
-  discard close(conn)
+#proc sents(arg: pointer, conn: ptr Tcp, length: cushort): cint {.cdecl.} =
+#  discard conn.close
+#  return 0
 
-proc accepts(arg: pointer, newConn: ptr Tcp, err: cint): cint {.cdecl.} =
-  newConn.receive(cast[pointer](receives))
+proc receives(arg: pointer, conn: ptr Tcp, p: ptr Pbuf, err: cint): cint {.cdecl.} =
+  if p.isNil:
+    discard conn.close
+    return 0
+  if p.totalLength == 0:
+    p.free
+    discard conn.close
+    return 0
+  #var line = newString(p.length)
+  #copyMem(addr line[0], p.payload, p.length.cint)
+  conn.received(p.length)
+  let response = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK"
+  discard conn.write(response, response.len.cushort, cuchar 1)
+  discard conn.output
+  discard conn.close
+  p.free
+  return 0
+
+proc accepts(arg: pointer, conn: ptr Tcp, err: cint): cint {.cdecl.} =
+  #conn.sent(cast[pointer](sents))
+  conn.receive(cast[pointer](receives))
   return 0
 
 # tcp server init
