@@ -30,42 +30,55 @@ for i in 0..2:
 if connectWifi(ssid, phrase, wpaAuth, timeout):
   blinkCode += 1
 
-# tcp server handlers
+#### A tiny web server using the lwip tcp server
+# todo: its own module
+import httpcore
 
-#proc sents(arg: pointer, conn: ptr Tcp, length: cushort): cint {.cdecl.} =
-#  discard conn.close
-#  return 0
+type
+  Request = ptr Tcp
 
-proc receives(arg: pointer, conn: ptr Tcp, p: ptr Pbuf, err: cint): cint {.cdecl.} =
-  if p.isNil:
-    discard conn.close
+# respond helper, must be called
+proc respond(conn: ptr Tcp, code: HttpCode, body: string) =
+  let response = "HTTP/1.1 " & $code & "\r\nContent-Length: " & $body.len & "\r\n\r\n" & body
+  discard write(conn, response, response.len.cushort, cuchar 1)
+  discard output(conn)
+  discard close(conn)
+
+# main template
+template startNphd(requestHandler: proc(conn: Request, httpMethod: HttpMethod, path: string), port: uint16) =
+  # callbacks
+  proc receiveRequest(arg: pointer, conn: ptr Tcp, p: ptr Pbuf, err: cint): cint {.cdecl.} =
+    if p.isNil:
+      discard close(conn)
+      return 0
+    if p.totalLength == 0:
+      free(p)
+      discard close(conn)
+      return 0
+    var requestStr = newString(p.totalLength)
+    copyMem(addr requestStr[0], p.payload, p.length.cint)
+    received(conn, p.length)
+    `requestHandler`(conn, HttpGet, "/")
+    free(p)
     return 0
-  if p.totalLength == 0:
-    p.free
-    discard conn.close
+
+  proc acceptConnection(arg: pointer, conn: ptr Tcp, err: cint): cint {.cdecl.} =
+    receive(conn, cast[pointer](receiveRequest))
     return 0
-  var line = newString(p.totalLength)
-  copyMem(addr line[0], p.payload, p.length.cint)
-  conn.received(p.length)
-  let body = "OK " & line & " " & $p.totalLength & " " & $p.length & " <<"
-  let response = "HTTP/1.1 200 OK\r\nContent-Length: " & $body.len & "\r\n\r\n" & body
-  discard conn.write(response, response.len.cushort, cuchar 1)
-  discard conn.output
-  discard conn.close
-  p.free
-  return 0
 
-proc accepts(arg: pointer, conn: ptr Tcp, err: cint): cint {.cdecl.} =
-  #conn.sent(cast[pointer](sents))
-  conn.receive(cast[pointer](receives))
-  return 0
+  # tcp server init
 
-# tcp server init
+  var conn = initTcp()
+  discard `bind`(conn, nil, cushort port)
+  conn = listen(conn) # yes, replace the Tcp
+  accept(conn, cast[pointer](acceptConnection))
 
-var conn = initTcp()
-discard `bind`(conn, nil, 80)
-conn = conn.listen  # yes, replace the Tcp
-conn.accept(cast[pointer](accepts))
+#### web server init code
+
+proc requested(r: Request, httpMethod: HttpMethod, path: string) =
+  r.respond(Http200, "Hello, World!")
+
+startNphd(requested, 80)
 
 # loop
 
