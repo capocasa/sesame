@@ -44,10 +44,11 @@ proc receives(arg: pointer, conn: ptr Tcp, p: ptr Pbuf, err: cint): cint {.cdecl
     p.free
     discard conn.close
     return 0
-  #var line = newString(p.length)
-  #copyMem(addr line[0], p.payload, p.length.cint)
+  var line = newString(p.totalLength)
+  copyMem(addr line[0], p.payload, p.length.cint)
   conn.received(p.length)
-  let response = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK"
+  let body = "OK " & line & " " & $p.totalLength & " " & $p.length & " <<"
+  let response = "HTTP/1.1 200 OK\r\nContent-Length: " & $body.len & "\r\n\r\n" & body
   discard conn.write(response, response.len.cushort, cuchar 1)
   discard conn.output
   discard conn.close
